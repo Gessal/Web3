@@ -31,24 +31,38 @@ public class BankClientDAO {
 
     public boolean validateClient(String name, String password) {
         BankClient client = getClientByName(name);
-        if (client != null && client.getPassword().equals(password)) {
-            return true;
-        }
-        return false;
+        return client != null && client.getPassword().equals(password);
     }
 
-    public void updateClientsMoney(String name, String password, Long transactValue) {
-        if (validateClient(name, password)) {
-            BankClient client = getClientByName(name);
-            try (PreparedStatement st = connection.prepareStatement("UPDATE bank_client SET money = ? WHERE id = ?")) {
-                st.setLong(1, client.getMoney() + transactValue);
-                st.setLong(2, client.getId());
-                st.executeUpdate();
-            } catch (SQLException e) {}
+    /* Заменил метод UpdateClientsMoney на sendMoney с использованием транзакций,
+    *  т.к. делать транзакции в каждом методе update бессмысленно. Может случиться так,
+    *  что у одного клиента сумма обновится, а у второго нет.*/
+    public void sendMoney(BankClient clientFrom, BankClient clientTo, Long transactValue) {
+        try {
+            connection.setAutoCommit(false);
+            PreparedStatement statement = connection.prepareStatement("UPDATE bank_client SET money = ? WHERE id = ?");
+            statement.setLong(1, clientFrom.getMoney() - transactValue);
+            statement.setLong(2, clientFrom.getId());
+            statement.executeUpdate();
+
+            statement = connection.prepareStatement("UPDATE bank_client SET money = ? WHERE id = ?");
+            statement.setLong(1, clientTo.getMoney() + transactValue);
+            statement.setLong(2, clientTo.getId());
+            statement.executeUpdate();
+
+            statement.close();
+            connection.commit();
+            connection.setAutoCommit(true);
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+                connection.setAutoCommit(true);
+                connection.close();
+            } catch (SQLException ignored) { }
         }
     }
 
-    public BankClient getClientById(long id) throws SQLException {
+    public BankClient getClientById(long id) {
         try (PreparedStatement st = connection.prepareStatement("SELECT * FROM bank_client WHERE id = ?")) {
             st.setLong(1, id);
             ResultSet rs = st.executeQuery();
@@ -64,13 +78,10 @@ public class BankClientDAO {
 
     public boolean isClientHasSum(String name, Long expectedSum) {
         BankClient client = getClientByName(name);
-        if (client != null && client.getMoney() >= expectedSum) {
-            return true;
-        }
-        return false;
+        return client != null && client.getMoney() >= expectedSum;
     }
 
-    public long getClientIdByName(String name) throws SQLException {
+    public long getClientIdByName(String name) {
         try (PreparedStatement st = connection.prepareStatement("SELECT id FROM bank_client WHERE name = ?")) {
             st.setString(1, name);
             ResultSet rs = st.executeQuery();
@@ -98,7 +109,7 @@ public class BankClientDAO {
         }
     }
 
-    public void addClient(BankClient client) throws SQLException {
+    public void addClient(BankClient client) {
         try (PreparedStatement st = connection.prepareStatement("INSERT INTO bank_client (name, password, money) VALUES (?, ?, ?)")) {
             st.setString(1, client.getName());
             st.setString(2, client.getPassword());
@@ -107,7 +118,7 @@ public class BankClientDAO {
         } catch (SQLException ignored) {}
     }
 
-    public boolean delClient(String name) throws SQLException {
+    public boolean delClient(String name) {
         long id = getClientIdByName(name);
         if (id != -1) {
             try (PreparedStatement st = connection.prepareStatement("DELETE FROM bank_client WHERE id = ?")) {

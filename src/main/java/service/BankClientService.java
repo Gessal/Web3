@@ -12,12 +12,8 @@ public class BankClientService {
     public BankClientService() {
     }
 
-    public BankClient getClientById(long id) throws DBException {
-        try {
-            return getBankClientDAO().getClientById(id);
-        } catch (SQLException e) {
-            throw new DBException(e);
-        }
+    public BankClient getClientById(long id) {
+        return getBankClientDAO().getClientById(id);
     }
 
     public BankClient getClientByName(String name) {
@@ -29,33 +25,28 @@ public class BankClientService {
     }
 
     public boolean deleteClient(String name) {
-        try {
-            return getBankClientDAO().delClient(name);
-        } catch (SQLException e) {
-            return false;
-        }
+        return getBankClientDAO().delClient(name);
     }
 
-    public boolean addClient(BankClient client) throws DBException {
-        try {
-            if (getBankClientDAO().getClientIdByName(client.getName()) == -1) {
-                getBankClientDAO().addClient(client);
-                return true;
-            }
-        } catch (SQLException e) {
-            return false;
-        }
-        return false;
-    }
-
-    public boolean sendMoneyToClient(BankClient sender, String name, Long value) {
-        BankClient client = getBankClientDAO().getClientByName(name);
-        if (getBankClientDAO().isClientHasSum(sender.getName(), value) && client != null) {
-            getBankClientDAO().updateClientsMoney(sender.getName(), sender.getPassword(), -value);
-            getBankClientDAO().updateClientsMoney(client.getName(), client.getPassword(), value);
+    public boolean addClient(BankClient client) {
+        if (getBankClientDAO().getClientIdByName(client.getName()) == -1) {
+            getBankClientDAO().addClient(client);
             return true;
         }
         return false;
+    }
+
+    public boolean sendMoneyToClient(BankClient clientFrom, String name, Long value) {
+        BankClient clientTo = getBankClientDAO().getClientByName(name);
+        if (getBankClientDAO().isClientHasSum(clientFrom.getName(), value) && clientTo != null) {
+            getBankClientDAO().sendMoney(clientFrom, clientTo, value);
+            return true;
+        }
+        return false;
+    }
+    /* Вынес проверкиу пароля в отдельный метод BankClientService */
+    public boolean checkPassword(String name, String password) {
+        return getBankClientDAO().validateClient(name, password);
     }
 
     public void cleanUp() throws DBException {
