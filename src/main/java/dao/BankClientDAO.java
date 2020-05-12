@@ -52,7 +52,7 @@ public class BankClientDAO {
 
             statement.close();
             connection.commit();
-        } catch (SQLException e) {
+        } catch (Exception e) {
             try {
                 connection.rollback();
                 connection.close();
