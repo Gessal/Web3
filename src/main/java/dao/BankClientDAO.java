@@ -52,12 +52,14 @@ public class BankClientDAO {
 
             statement.close();
             connection.commit();
-            connection.setAutoCommit(true);
         } catch (SQLException e) {
             try {
                 connection.rollback();
-                connection.setAutoCommit(true);
                 connection.close();
+            } catch (SQLException ignored) { }
+        } finally {
+            try {
+                connection.setAutoCommit(true);
             } catch (SQLException ignored) { }
         }
     }
